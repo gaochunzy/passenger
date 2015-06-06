@@ -54,6 +54,10 @@
 
 	#define DEFAULT_ANALYTICS_LOG_USER "nobody"
 
+	#define DEFAULT_API_SERVER_ADDRESS "127.0.0.1"
+
+	#define DEFAULT_API_SERVER_PORT 3550
+
 	#define DEFAULT_APP_ENV "production"
 
 	#define DEFAULT_APP_THREAD_COUNT 1

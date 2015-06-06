@@ -112,6 +112,9 @@ module PhusionPassenger
             end
             command << " --default-user #{Shellwords.escape user}"
           end
+          if @options[:api_server]
+            command << " --api-listen tcp://#{Shellwords.escape @options[:api_server_address]}:#{@options[:api_server_port]}"
+          end
 
           command << " --BS"
           command << " --listen #{listen_address}"

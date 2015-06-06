@@ -295,6 +295,22 @@ module PhusionPassenger
           end
 
           opts.separator ""
+          opts.separator "API server options:"
+          opts.on("--api-server", "Enable the API server") do
+            options[:api_server] = true
+          end
+          opts.on("--api-server-address", String, "Bind the API server to the given address.#{nl}" +
+            "Default: #{DEFAULT_API_SERVER_ADDRESS}. Specify 0.0.0.0 if#{nl}" +
+            "you want the API server to be accessible#{nl}" +
+            "over the Internet") do |val|
+            options[:api_server_address] = val
+          end
+          opts.on("--api-server-port", Integer, "Bind the API server to the given port.#{nl}" +
+            "Default: #{DEFAULT_API_SERVER_PORT}") do |val|
+            options[:api_server_port] = val
+          end
+
+          opts.separator ""
           opts.separator "Union Station options:"
           opts.on("--union-station-gateway HOST:PORT", String,
             "Specify Union Station Gateway host and port") do |value|
@@ -421,6 +437,20 @@ module PhusionPassenger
         end
         if @options[:engine] != "builtin" && @options[:engine] != "nginx"
           abort "You've specified an invalid value for --engine. The only values allowed are: builtin, nginx."
+        end
+
+        if !@options[:api_server]
+          if @options[:api_server_address]
+            abort "You specified --api-server-address, but without --api-server. " +
+              "Please specify --api-server too if you really want to enable the API server."
+          end
+          if @options[:api_server_port]
+            abort "You specified --api-server-port, but without --api-server. " +
+              "Please specify --api-server too if you really want to enable the API server."
+          end
+        else
+          @options[:api_server_address] ||= DEFAULT_API_SERVER_ADDRESS
+          @options[:api_server_port] ||= DEFAULT_API_SERVER_PORT
         end
 
         if !@options[:socket_file]
