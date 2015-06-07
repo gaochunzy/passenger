@@ -732,17 +732,23 @@ apiServerProcessBacktraces(Server *server, Client *client, Request *req) {
 
 template<typename Server, typename Client, typename Request>
 inline void
+apiServerProcessShutdownCoreImpl(Server *server, Client *client, Request *req) {
+	ServerKit::HeaderTable headers;
+	headers.insert(req->pool, "Content-Type", "application/json");
+	server->exitEvent->notify();
+	server->writeSimpleResponse(client, 200, &headers, "{ \"status\": \"ok\" }");
+	if (!req->ended()) {
+		server->endRequest(&client, &req);
+	}
+}
+
+template<typename Server, typename Client, typename Request>
+inline void
 apiServerProcessShutdown(Server *server, Client *client, Request *req) {
 	if (req->method != HTTP_POST) {
 		apiServerRespondWith405(server, client, req);
 	} else if (authorizeAdminOperation(server, client, req)) {
-		ServerKit::HeaderTable headers;
-		headers.insert(req->pool, "Content-Type", "application/json");
-		server->exitEvent->notify();
-		server->writeSimpleResponse(client, 200, &headers, "{ \"status\": \"ok\" }");
-		if (!req->ended()) {
-			server->endRequest(&client, &req);
-		}
+		apiServerProcessShutdownCoreImpl(server, client, req);
 	} else {
 		apiServerRespondWith401(server, client, req);
 	}

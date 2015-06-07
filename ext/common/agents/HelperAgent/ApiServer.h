@@ -67,6 +67,8 @@ private:
 	typedef ServerKit::HttpServer<ApiServer, ServerKit::HttpClient<Request> > ParentClass;
 	typedef ServerKit::HttpClient<Request> Client;
 	typedef ServerKit::HeaderTable HeaderTable;
+	typedef ApiServerInternalHttpRequest<ApiServer, Client, Request> InternalHttpRequest;
+	typedef ApiServerInternalHttpResponse<ApiServer, Client, Request> InternalHttpResponse;
 
 	boost::regex serverConnectionPath;
 
@@ -92,10 +94,33 @@ private:
 	}
 
 	void route(Client *client, Request *req, const StaticString &path) {
-		if (path == P_STATIC_STRING("/server.json")) {
+		/***** General *****/
+
+		if (path == P_STATIC_STRING("/backtraces.txt")) {
+			apiServerProcessBacktraces(this, client, req);
+		} else if (path == P_STATIC_STRING("/ping.json")) {
+			apiServerProcessPing(this, client, req);
+		} else if (path == P_STATIC_STRING("/version.json")) {
+			apiServerProcessVersion(this, client, req);
+		} else if (path == P_STATIC_STRING("/shutdown.json")) {
+			processShutdown(client, req);
+		} else if (path == P_STATIC_STRING("/config.json")) {
+			processConfig(client, req);
+		} else if (path == P_STATIC_STRING("/reinherit_logs.json")) {
+			apiServerProcessReinheritLogs(this, client, req,
+				instanceDir, fdPassingPassword);
+		} else if (path == P_STATIC_STRING("/reopen_logs.json")) {
+			apiServerProcessReopenLogs(this, client, req);
+
+		/***** Server *****/
+
+		} else if (path == P_STATIC_STRING("/server.json")) {
 			processServerStatus(client, req);
 		} else if (regex_match(path, serverConnectionPath)) {
 			processServerConnectionOperation(client, req);
+
+		/***** ApplicationPool *****/
+
 		} else if (path == P_STATIC_STRING("/pool.xml")) {
 			processPoolStatusXml(client, req);
 		} else if (path == P_STATIC_STRING("/pool.txt")) {
@@ -104,25 +129,27 @@ private:
 			processPoolRestartAppGroup(client, req);
 		} else if (path == P_STATIC_STRING("/pool/detach_process.json")) {
 			processPoolDetachProcess(client, req);
-		} else if (path == P_STATIC_STRING("/backtraces.txt")) {
-			apiServerProcessBacktraces(this, client, req);
-		} else if (path == P_STATIC_STRING("/ping.json")) {
-			apiServerProcessPing(this, client, req);
-		} else if (path == P_STATIC_STRING("/version.json")) {
-			apiServerProcessVersion(this, client, req);
-		} else if (path == P_STATIC_STRING("/shutdown.json")) {
-			apiServerProcessShutdown(this, client, req);
+
+		/***** Miscellaneous *****/
+
 		} else if (path == P_STATIC_STRING("/gc.json")) {
 			processGc(client, req);
-		} else if (path == P_STATIC_STRING("/config.json")) {
-			processConfig(client, req);
-		} else if (path == P_STATIC_STRING("/reinherit_logs.json")) {
-			apiServerProcessReinheritLogs(this, client, req,
-				instanceDir, fdPassingPassword);
-		} else if (path == P_STATIC_STRING("/reopen_logs.json")) {
-			apiServerProcessReopenLogs(this, client, req);
 		} else {
 			apiServerRespondWith404(this, client, req);
+		}
+	}
+
+	void routeBody(Client *client, Request *req, const StaticString &path) {
+		if (path == P_STATIC_STRING("/pool/restart_app_group.json")) {
+			processPoolRestartAppGroupBody(client, req);
+		} else if (path == P_STATIC_STRING("/pool/detach_process.json")) {
+			processPoolDetachProcessBody(client, req);
+		} else if (path == P_STATIC_STRING("/shutdown.json")) {
+			processShutdownBody(client, req);
+		} else if (path == P_STATIC_STRING("/config.json")) {
+			processConfigBody(client, req);
+		} else {
+			P_BUG("Unknown path for body processing: " << path);
 		}
 	}
 
@@ -381,6 +408,89 @@ private:
 		*json = rh->getConfigAsJson();
 	}
 
+	void processShutdown(Client *client, Request *req) {
+		if (req->method != HTTP_POST) {
+			apiServerRespondWith405(this, client, req);
+		} else if (authorizeAdminOperation(this, client, req)) {
+			if (!req->hasBody()) {
+				endAsBadRequest(&client, &req, "Body required");
+			}
+			// Continue in processShutdownBody()
+		} else {
+			apiServerRespondWith401(this, client, req);
+		}
+	}
+
+	void processShutdownBody(Client *client, Request *req) {
+		if (shouldCombineAgentsInformation(req)) {
+			InternalHttpRequest params;
+			params.server   = this;
+			params.client   = client;
+			params.req      = req;
+			params.address  = "unix:/" + instanceDir + "/agents.s/watchdog_api";
+			params.method   = HTTP_POST;
+			params.uri      = "/shutdown.json";
+			//params.headers.set("Authorize");
+			params.callback = processShutdownDone;
+			apiServerMakeInternalHttpRequest(params);
+		} else {
+			apiServerProcessShutdownCoreImpl(this, client, req);
+		}
+	}
+
+	static void processShutdownDone(InternalHttpResponse resp) {
+		ApiServer *server = resp.server;
+		Client *client = resp.client;
+		Request *req   = resp.req;
+		int status;
+		StaticString body;
+
+		if (req->ended()) {
+			return;
+		}
+
+		if (resp.status < 0) {
+			status = 500;
+			switch (resp.status) {
+			case InternalHttpResponse::ERROR_INVALID_HEADER:
+				body = "{ \"status\": \"error\", "
+					"\"message\": \"Error communicating with Watchdog process: "
+						"invalid response headers from Watchdog\" }\n";
+				break;
+			case InternalHttpResponse::ERROR_INVALID_BODY:
+				body = "{ \"status\": \"error\", "
+					"\"message\": \"Error communicating with Watchdog process: "
+						"invalid response body from Watchdog\" }\n";
+				break;
+			case InternalHttpResponse::ERROR_INTERNAL:
+				body = "{ \"status\": \"error\", "
+					"\"message\": \"Error communicating with Watchdog process: "
+						"an internal error occurred\" }\n";
+				break;
+			default:
+				body = "{ \"status\": \"error\", "
+					"\"message\": \"Error communicating with Watchdog process: "
+						"unknown error\" }\n";
+				break;
+			}
+		} else if (resp.status == 200) {
+			status = 200;
+			body = "{ \"status\": \"ok\" }\n";
+		} else {
+			status = 500;
+			body = "{ \"status\": \"error\", "
+				"\"message\": \"Error communicating with Watchdog process: non-200 response\" }\n";
+
+		}
+
+		HeaderTable headers;
+		headers.insert(req->pool, "Content-Type", "application/json");
+		server->writeSimpleResponse(client, status, &headers, body);
+		if (!req->ended()) {
+			server->endRequest(&client, &req);
+		}
+	}
+
 	void processConfig(Client *client, Request *req) {
 		if (req->method == HTTP_GET) {
 			if (!authorizeStateInspectionOperation(this, client, req)) {
@@ -484,6 +594,16 @@ private:
 				&& req->body.size() > limit);
 	}
 
+	bool shouldCombineAgentsInformation(Request *req) {
+		bool flag;
+		if (req->jsonBody.isMember("combine_agents")) {
+			flag = req->jsonBody["combine_agents"].asBool();
+		} else {
+			flag = true;
+		}
+		return flag && !instanceDir.empty();
+	}
+
 protected:
 	virtual void onRequestBegin(Client *client, Request *req) {
 		TRACE_POINT();
@@ -519,15 +639,7 @@ protected:
 			if (reader.parse(req->body, req->jsonBody)) {
 				StaticString path = req->getPathWithoutQueryString();
 				try {
-					if (path == P_STATIC_STRING("/pool/restart_app_group.json")) {
-						processPoolRestartAppGroupBody(client, req);
-					} else if (path == P_STATIC_STRING("/pool/detach_process.json")) {
-						processPoolDetachProcessBody(client, req);
-					} else if (path == P_STATIC_STRING("/config.json")) {
-						processConfigBody(client, req);
-					} else {
-						P_BUG("Unknown path for body processing: " << path);
-					}
+					routeBody(client, req, path);
 				} catch (const oxt::tracable_exception &e) {
 					SKC_ERROR(client, "Exception: " << e.what() << "\n" << e.backtrace());
 					if (!req->ended()) {
