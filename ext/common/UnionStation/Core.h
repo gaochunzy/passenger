@@ -145,7 +145,7 @@ private:
 		fd = connectToServer(serverAddress, __FILE__, __LINE__);
 		FdGuard guard(fd, NULL, 0, true);
 
-		P_LOG_FILE_DESCRIPTOR_PURPOSE(fd, "Connection to " AGENT_EXE " UstRouter");
+		P_LOG_FILE_DESCRIPTOR_PURPOSE(fd, "Connection to " SHORT_PROGRAM_NAME " UstRouter");
 
 		// Handshake: process protocol version number.
 		if (!readArrayMessage(fd, args, &timeout)) {

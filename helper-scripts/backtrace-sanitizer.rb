@@ -102,7 +102,7 @@ begin
     # Example lines:
     # ./test() [0x400b64]
     # /lib/libc.so.6(__libc_start_main+0xfd) [0x7fcc0ad00c8d]
-    # PassengerAgent core[0x4d2697]
+    # Passenger core[0x4d2697]
     if line =~ /(.*)\[(.*?)\]$/
       # Split line into:
       # subject: /lib/libc.so.6(__libc_start_main+0xfd)

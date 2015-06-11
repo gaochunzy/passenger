@@ -1192,7 +1192,7 @@ coreMain(int argc, char *argv[]) {
 	int ret;
 
 	agentsOptions = new VariantMap();
-	*agentsOptions = initializeAgent(argc, &argv, AGENT_EXE " core", parseOptions,
+	*agentsOptions = initializeAgent(argc, &argv, SHORT_PROGRAM_NAME " core", parseOptions,
 		preinitialize, 2);
 	setAgentsOptionsDefaults();
 	sanityCheckOptions();

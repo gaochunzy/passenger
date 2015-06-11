@@ -544,7 +544,7 @@ sanityCheckOptions() {
 int
 ustRouterMain(int argc, char *argv[]) {
 	agentsOptions = new VariantMap();
-	*agentsOptions = initializeAgent(argc, &argv, AGENT_EXE " ust-router",
+	*agentsOptions = initializeAgent(argc, &argv, SHORT_PROGRAM_NAME " ust-router",
 		parseOptions, preinitialize, 2);
 
 	CURLcode code = curl_global_init(CURL_GLOBAL_ALL);

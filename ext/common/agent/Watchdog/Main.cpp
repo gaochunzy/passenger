@@ -536,13 +536,13 @@ usage() {
 	printf("wrapping those arguments between --BC/--EC and --BU/--EU.\n");
 	printf("\n");
 	printf("  Example 1: pass some arguments to the core.\n\n");
-	printf("  " AGENT_EXE " watchdog --passenger-root /opt/passenger \\\n");
+	printf("  " SHORT_PROGRAM_NAME " watchdog --passenger-root /opt/passenger \\\n");
 	printf("    --BC --listen tcp://127.0.0.1:4000 /webapps/foo\n");
 	printf("\n");
 	printf("  Example 2: pass some arguments to the core, and some others to the\n");
 	printf("  UstRouter. The watchdog itself and the core will use logging\n");
 	printf("  level 3, while the UstRouter will use logging level 1.\n\n");
-	printf("  " AGENT_EXE " watchdog --passenger-root /opt/passenger \\\n");
+	printf("  " SHORT_PROGRAM_NAME " watchdog --passenger-root /opt/passenger \\\n");
 	printf("    --BC --listen tcp://127.0.0.1:4000 /webapps/foo --EC \\\n");
 	printf("    --BU --log-level 1 --EU \\\n");
 	printf("    --log-level 3\n");
@@ -778,7 +778,7 @@ initializeBareEssentials(int argc, char *argv[], WorkingObjectsPtr &wo) {
 	oldOomScore = setOomScoreNeverKill();
 
 	agentsOptions = new VariantMap();
-	*agentsOptions = initializeAgent(argc, &argv, AGENT_EXE " watchdog",
+	*agentsOptions = initializeAgent(argc, &argv, SHORT_PROGRAM_NAME " watchdog",
 		parseOptions, NULL, 2);
 
 	// Start all sub-agents with this environment variable.
@@ -914,19 +914,19 @@ lowerPrivilege() {
 
 		if (initgroups(userName.c_str(), gid) != 0) {
 			int e = errno;
-			throw SystemException("Unable to lower " AGENT_EXE " watchdog's privilege "
+			throw SystemException("Unable to lower " SHORT_PROGRAM_NAME " watchdog's privilege "
 				"to that of user '" + userName + "' and group '" + groupName +
 				"': cannot set supplementary groups", e);
 		}
 		if (setgid(gid) != 0) {
 			int e = errno;
-			throw SystemException("Unable to lower " AGENT_EXE " watchdog's privilege "
+			throw SystemException("Unable to lower " SHORT_PROGRAM_NAME " watchdog's privilege "
 				"to that of user '" + userName + "' and group '" + groupName +
 				"': cannot set group ID to " + toString(gid), e);
 		}
 		if (setuid(pwUser->pw_uid) != 0) {
 			int e = errno;
-			throw SystemException("Unable to lower " AGENT_EXE " watchdog's privilege "
+			throw SystemException("Unable to lower " SHORT_PROGRAM_NAME " watchdog's privilege "
 				"to that of user '" + userName + "' and group '" + groupName +
 				"': cannot set user ID to " + toString(pwUser->pw_uid), e);
 		}
@@ -1336,7 +1336,7 @@ watchdogMain(int argc, char *argv[]) {
 	initializeBareEssentials(argc, argv, wo);
 	setAgentsOptionsDefaults();
 	sanityCheckOptions();
-	P_NOTICE("Starting " AGENT_EXE " watchdog...");
+	P_NOTICE("Starting " SHORT_PROGRAM_NAME " watchdog...");
 	P_DEBUG("Watchdog options: " << agentsOptions->inspect());
 	InstanceDirToucherPtr instanceDirToucher;
 	vector<AgentWatcherPtr> watchers;
