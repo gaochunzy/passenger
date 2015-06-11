@@ -1,7 +1,7 @@
 #include <TestSupport.h>
-#include <agents/HelperAgent/RequestHandler.h>
-#include <agents/HelperAgent/RequestHandler.cpp>
-#include <agents/HelperAgent/AgentOptions.h>
+#include <agent/Core/RequestHandler.h>
+#include <agent/Core/RequestHandler.cpp>
+#include <agent/Core/AgentOptions.h>
 #include <ApplicationPool2/Pool.h>
 #include <Utils/json.h>
 #include <Utils/IOUtils.h>
